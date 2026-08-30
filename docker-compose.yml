@@ -1,0 +1,81 @@
+name: serverless-game-backend
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: development
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+        PHP_VERSION: 8.4.24
+        COMPOSER_VERSION: 2.8.12
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      AWS_ENDPOINT_URL_DYNAMODB: http://dynamodb:8000
+      DYNAMODB_ENDPOINT: http://dynamodb:8000
+    init: true
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - .:/app
+      - vendor:/app/vendor
+    depends_on:
+      dynamodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8000/up"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  node:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+      target: development
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+        NODE_VERSION: 24.19.0
+    init: true
+    ports:
+      - "${VITE_PORT:-5173}:5173"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/@vite/client').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  dynamodb:
+    build:
+      context: .
+      dockerfile: docker/dynamodb/Dockerfile
+      args:
+        DYNAMODB_VERSION: 3.3.1
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "./data"]
+    init: true
+    ports:
+      - "${DYNAMODB_PORT:-8001}:8000"
+    volumes:
+      - dynamodb_data:/home/dynamodblocal/data
+    working_dir: /home/dynamodblocal
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--output", "/dev/null", "http://127.0.0.1:8000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  vendor:
+  node_modules:
+  dynamodb_data:
