@@ -35,9 +35,9 @@ make init
 
 ## Локальная DynamoDB
 
-`make dynamodb-setup` идемпотентно создаёт семь физических таблиц: `players`, `wallets`, `buildings`, `productions`, `occupied_cells`, `commands` и `outbox_events`. Префикс локальных таблиц — `serverless-game-backend-local-`.
+`make dynamodb-setup` идемпотентно создаёт восемь физических таблиц: `players`, `wallets`, `buildings`, `productions`, `occupied_cells`, `cleared_obstacles`, `commands` и `outbox_events`. Префикс локальных таблиц — `serverless-game-backend-local-`.
 
-После `make up` таблицы и записи доступны в DynamoDB Admin по адре <http://localhost:8002>. Локальные AWS-профили и credentials для этого не нужны.
+После `make up` таблицы и записи доступны в DynamoDB Admin по адресу <http://localhost:8002>. Локальные AWS-профили и credentials для этого не нужны.
 
 Для ручной проверки можно создать и прочитать тестового игрока:
 
@@ -45,6 +45,17 @@ make init
 make artisan ARGS="player:setup-local demo-player v1 demo-seed 1000"
 make artisan ARGS="player:show-local demo-player"
 ```
+
+Расчистить препятствие через HTTP API можно из Postman или `curl`:
+
+```bash
+curl --request POST http://localhost:8000/api/v1/obstacles/tree-001/clear \
+  --header 'Accept: application/json' \
+  --header 'X-Player-Id: demo-player' \
+  --header 'Idempotency-Key: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+```
+
+Команда атомарно списывает монеты и создаёт записи в `cleared_obstacles`, `commands` и `outbox_events`. Повтор с тем же `Idempotency-Key` возвращает сохранённый ответ без повторного списания.
 
 ## Make-команды
 

@@ -70,6 +70,7 @@ final class FarmControllerTest extends TestCase
                         'player_id' => 'player-123',
                         'coins' => 125,
                         'resources' => ['wheat' => 3],
+                        'version' => 4,
                     ])],
                 ],
             ]),
@@ -96,6 +97,20 @@ final class FarmControllerTest extends TestCase
                     ]),
                 ],
             ]),
+            new Result([
+                'Items' => [
+                    $marshaler->marshalItem([
+                        'player_id' => 'player-123',
+                        'obstacle_id' => 'tree-001',
+                        'schema_version' => 1,
+                        'obstacle_type' => 'tree',
+                        'x' => 3,
+                        'y' => 4,
+                        'clear_cost' => 100,
+                        'cleared_at' => '2026-08-03T10:00:00.000000Z',
+                    ]),
+                ],
+            ]),
         ]);
         $this->app->instance(DynamoDbClient::class, $this->dynamoDb($mockHandler));
 
@@ -115,6 +130,7 @@ final class FarmControllerTest extends TestCase
                     'wallet' => [
                         'coins' => 125,
                         'resources' => ['wheat' => 3],
+                        'version' => 4,
                     ],
                     'buildings' => [
                         [
@@ -129,6 +145,16 @@ final class FarmControllerTest extends TestCase
                             'productionId' => 'production-1',
                             'recipe' => 'wheat',
                             'status' => 'running',
+                        ],
+                    ],
+                    'clearedObstacles' => [
+                        [
+                            'obstacleId' => 'tree-001',
+                            'obstacleType' => 'tree',
+                            'x' => 3,
+                            'y' => 4,
+                            'clearCost' => 100,
+                            'clearedAt' => '2026-08-03T10:00:00.000000Z',
                         ],
                     ],
                     'createdAt' => '2026-08-01T10:00:00.000000Z',
@@ -160,6 +186,7 @@ final class FarmControllerTest extends TestCase
             'services.aws.dynamodb_tables.wallets' => 'test-wallets',
             'services.aws.dynamodb_tables.buildings' => 'test-buildings',
             'services.aws.dynamodb_tables.productions' => 'test-productions',
+            'services.aws.dynamodb_tables.cleared_obstacles' => 'test-cleared-obstacles',
         ]);
     }
 }

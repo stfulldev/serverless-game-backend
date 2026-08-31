@@ -23,9 +23,10 @@ final class FarmService
      * @return array{
      *     playerId: string,
      *     map: array{version: string, seed: string},
-     *     wallet: array{coins: int, resources: array<string, int>},
+     *     wallet: array{coins: int, resources: array<string, int>, version: int},
      *     buildings: list<array<string, mixed>>,
      *     productions: list<array<string, mixed>>,
+     *     clearedObstacles: list<array<string, mixed>>,
      *     createdAt: string,
      *     updatedAt: string
      * }|null
@@ -46,6 +47,7 @@ final class FarmService
             ...$profile,
             'buildings' => $this->queryPlayerItems('buildings', $playerId),
             'productions' => $this->queryPlayerItems('productions', $playerId),
+            'clearedObstacles' => $this->queryPlayerItems('cleared_obstacles', $playerId),
         ];
     }
 

@@ -30,6 +30,8 @@ export class GameplayStack extends Stack {
 
     public readonly occupiedCellsTable: dynamodb.Table;
 
+    public readonly clearedObstaclesTable: dynamodb.Table;
+
     public readonly commandsTable: dynamodb.Table;
 
     public readonly outboxEventsTable: dynamodb.Table;
@@ -89,6 +91,11 @@ export class GameplayStack extends Stack {
             sortKey: 'cell_id',
         });
 
+        this.clearedObstaclesTable = createTable('ClearedObstacles', 'cleared-obstacles', {
+            partitionKey: 'player_id',
+            sortKey: 'obstacle_id',
+        });
+
         this.commandsTable = createTable('Commands', 'commands', {
             partitionKey: 'player_id',
             sortKey: 'idempotency_key',
@@ -110,6 +117,7 @@ export class GameplayStack extends Stack {
         this.outputTableName('BuildingsTableName', this.buildingsTable);
         this.outputTableName('ProductionsTableName', this.productionsTable);
         this.outputTableName('OccupiedCellsTableName', this.occupiedCellsTable);
+        this.outputTableName('ClearedObstaclesTableName', this.clearedObstaclesTable);
         this.outputTableName('CommandsTableName', this.commandsTable);
         this.outputTableName('OutboxEventsTableName', this.outboxEventsTable);
     }

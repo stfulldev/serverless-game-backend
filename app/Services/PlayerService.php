@@ -25,7 +25,7 @@ final class PlayerService
      * @return array{
      *     playerId: string,
      *     map: array{version: string, seed: string},
-     *     wallet: array{coins: int, resources: array<string, int>},
+     *     wallet: array{coins: int, resources: array<string, int>, version: int},
      *     createdAt: string,
      *     updatedAt: string
      * }
@@ -123,7 +123,7 @@ final class PlayerService
      * @return array{
      *     playerId: string,
      *     map: array{version: string, seed: string},
-     *     wallet: array{coins: int, resources: array<string, int>},
+     *     wallet: array{coins: int, resources: array<string, int>, version: int},
      *     createdAt: string,
      *     updatedAt: string
      * }|null
@@ -187,6 +187,7 @@ final class PlayerService
             'wallet' => [
                 'coins' => (int) $wallet['coins'],
                 'resources' => $resources,
+                'version' => (int) ($wallet['version'] ?? 1),
             ],
             'createdAt' => (string) $meta['created_at'],
             'updatedAt' => (string) $meta['updated_at'],

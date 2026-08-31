@@ -22,6 +22,7 @@ services:
       DYNAMODB_BUILDINGS_TABLE: ${DYNAMODB_BUILDINGS_TABLE:-serverless-game-backend-local-buildings}
       DYNAMODB_PRODUCTIONS_TABLE: ${DYNAMODB_PRODUCTIONS_TABLE:-serverless-game-backend-local-productions}
       DYNAMODB_OCCUPIED_CELLS_TABLE: ${DYNAMODB_OCCUPIED_CELLS_TABLE:-serverless-game-backend-local-occupied-cells}
+      DYNAMODB_CLEARED_OBSTACLES_TABLE: ${DYNAMODB_CLEARED_OBSTACLES_TABLE:-serverless-game-backend-local-cleared-obstacles}
       DYNAMODB_COMMANDS_TABLE: ${DYNAMODB_COMMANDS_TABLE:-serverless-game-backend-local-commands}
       DYNAMODB_OUTBOX_EVENTS_TABLE: ${DYNAMODB_OUTBOX_EVENTS_TABLE:-serverless-game-backend-local-outbox-events}
     init: true

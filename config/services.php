@@ -39,6 +39,7 @@ return [
             'buildings' => env('DYNAMODB_BUILDINGS_TABLE'),
             'productions' => env('DYNAMODB_PRODUCTIONS_TABLE'),
             'occupied_cells' => env('DYNAMODB_OCCUPIED_CELLS_TABLE'),
+            'cleared_obstacles' => env('DYNAMODB_CLEARED_OBSTACLES_TABLE'),
             'commands' => env('DYNAMODB_COMMANDS_TABLE'),
             'outbox_events' => env('DYNAMODB_OUTBOX_EVENTS_TABLE'),
         ],

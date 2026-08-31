@@ -39,6 +39,7 @@ final class PlayerServiceTest extends TestCase
             'wallet' => [
                 'coins' => 75,
                 'resources' => ['wheat' => 4],
+                'version' => 3,
             ],
             'createdAt' => '2026-08-01T10:00:00.000000Z',
             'updatedAt' => '2026-08-02T10:00:00.000000Z',
@@ -124,6 +125,7 @@ final class PlayerServiceTest extends TestCase
                 'player_id' => 'player-123',
                 'coins' => 75,
                 'resources' => ['wheat' => 4],
+                'version' => 3,
             ])],
         ];
     }

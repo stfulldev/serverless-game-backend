@@ -32,6 +32,10 @@ final class SetupLocalDynamoDb extends Command
             'partition_key' => 'player_id',
             'sort_key' => 'cell_id',
         ],
+        'cleared_obstacles' => [
+            'partition_key' => 'player_id',
+            'sort_key' => 'obstacle_id',
+        ],
         'commands' => [
             'partition_key' => 'player_id',
             'sort_key' => 'idempotency_key',
