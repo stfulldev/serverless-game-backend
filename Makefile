@@ -6,7 +6,7 @@ COMPOSE := docker compose
 export APP_UID ?= $(shell id -u)
 export APP_GID ?= $(shell id -g)
 
-.PHONY: help init env build rebuild install composer-install npm-install key up dynamodb-setup stop restart down destroy ps logs logs-app logs-node logs-dynamodb shell node-shell artisan composer npm test format assets quality
+.PHONY: help init env build rebuild install composer-install npm-install key up dynamodb-setup stop restart down destroy ps logs logs-app logs-node logs-dynamodb logs-dynamodb-admin shell node-shell artisan composer npm test format assets quality
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -42,7 +42,7 @@ key: env ## Generate APP_KEY when it is missing
 up: env ## Start all services in the background
 	$(COMPOSE) up -d --remove-orphans
 
-dynamodb-setup: ## Create the local DynamoDB game table when it is missing
+dynamodb-setup: ## Create the local DynamoDB game tables when they are missing
 	$(COMPOSE) exec -T app php artisan dynamodb:setup-local
 
 stop: ## Stop services without removing them
@@ -72,6 +72,9 @@ logs-node: ## Follow Vite logs
 
 logs-dynamodb: ## Follow DynamoDB Local logs
 	$(COMPOSE) logs --follow --tail=100 dynamodb
+
+logs-dynamodb-admin: ## Follow DynamoDB Admin logs
+	$(COMPOSE) logs --follow --tail=100 dynamodb-admin
 
 shell: ## Open a shell in the running Laravel container
 	$(COMPOSE) exec app bash

@@ -33,7 +33,15 @@ return [
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
         'dynamodb_endpoint' => env('DYNAMODB_ENDPOINT'),
-        'dynamodb_table' => env('DYNAMODB_TABLE'),
+        'dynamodb_tables' => [
+            'players' => env('DYNAMODB_PLAYERS_TABLE'),
+            'wallets' => env('DYNAMODB_WALLETS_TABLE'),
+            'buildings' => env('DYNAMODB_BUILDINGS_TABLE'),
+            'productions' => env('DYNAMODB_PRODUCTIONS_TABLE'),
+            'occupied_cells' => env('DYNAMODB_OCCUPIED_CELLS_TABLE'),
+            'commands' => env('DYNAMODB_COMMANDS_TABLE'),
+            'outbox_events' => env('DYNAMODB_OUTBOX_EVENTS_TABLE'),
+        ],
     ],
 
     'slack' => [

@@ -12,16 +12,17 @@ Serverless-бэкенд для Unity-игры на Laravel 13, Bref и AWS. Ос
 make init
 ```
 
-Команда создаст `.env`, соберёт образы, установит Composer/npm-зависимости в Docker volumes, сгенерирует `APP_KEY`, запустит сервисы и подготовит локальную DynamoDB-таблицу.
+Команда создаст `.env`, соберёт образы, установит Composer/npm-зависимости в Docker volumes, сгенерирует `APP_KEY`, запустит сервисы и подготовит локальные DynamoDB-таблицы.
 
 После запуска доступны:
 
 - Laravel API: <http://localhost:8000>;
 - Vite asset-server: `http://localhost:5173`;
+- DynamoDB Admin: <http://localhost:8002>;
 - DynamoDB Local с хоста: <http://localhost:8001>;
 - DynamoDB Local из контейнеров: `http://dynamodb:8000`.
 
-Порты можно изменить через `APP_PORT`, `VITE_PORT` и `DYNAMODB_PORT` в `.env`.
+Порты можно изменить через `APP_PORT`, `VITE_PORT`, `DYNAMODB_PORT` и `DYNAMODB_ADMIN_PORT` в `.env`.
 
 ## Сервисы
 
@@ -30,6 +31,20 @@ make init
 | `app` | PHP 8.4, Composer, Laravel HTTP server и Artisan |
 | `node` | Node.js, npm и Vite с HMR |
 | `dynamodb` | DynamoDB Local с постоянным именованным volume |
+| `dynamodb-admin` | Веб-интерфейс для просмотра и редактирования локальной DynamoDB |
+
+## Локальная DynamoDB
+
+`make dynamodb-setup` идемпотентно создаёт семь физических таблиц: `players`, `wallets`, `buildings`, `productions`, `occupied_cells`, `commands` и `outbox_events`. Префикс локальных таблиц — `serverless-game-backend-local-`.
+
+После `make up` таблицы и записи доступны в DynamoDB Admin по адре <http://localhost:8002>. Локальные AWS-профили и credentials для этого не нужны.
+
+Для ручной проверки можно создать и прочитать тестового игрока:
+
+```bash
+make artisan ARGS="player:setup-local demo-player v1 demo-seed 1000"
+make artisan ARGS="player:show-local demo-player"
+```
 
 ## Make-команды
 
