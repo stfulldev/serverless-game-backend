@@ -33,6 +33,7 @@ return [
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
         'dynamodb_endpoint' => env('DYNAMODB_ENDPOINT'),
+        'dynamodb_table' => env('DYNAMODB_TABLE'),
     ],
 
     'slack' => [

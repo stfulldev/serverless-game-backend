@@ -6,7 +6,7 @@ COMPOSE := docker compose
 export APP_UID ?= $(shell id -u)
 export APP_GID ?= $(shell id -g)
 
-.PHONY: help init env build rebuild install composer-install npm-install key up stop restart down destroy ps logs logs-app logs-node logs-dynamodb shell node-shell artisan composer npm test format assets quality
+.PHONY: help init env build rebuild install composer-install npm-install key up dynamodb-setup stop restart down destroy ps logs logs-app logs-node logs-dynamodb shell node-shell artisan composer npm test format assets quality
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -16,6 +16,7 @@ init: env ## Build and start the project after a fresh clone
 	@$(MAKE) --no-print-directory install
 	@$(MAKE) --no-print-directory key
 	@$(MAKE) --no-print-directory up
+	@$(MAKE) --no-print-directory dynamodb-setup
 	@$(MAKE) --no-print-directory ps
 
 env: ## Create .env from .env.example when it is missing
@@ -40,6 +41,9 @@ key: env ## Generate APP_KEY when it is missing
 
 up: env ## Start all services in the background
 	$(COMPOSE) up -d --remove-orphans
+
+dynamodb-setup: ## Create the local DynamoDB game table when it is missing
+	$(COMPOSE) exec -T app php artisan dynamodb:setup-local
 
 stop: ## Stop services without removing them
 	$(COMPOSE) stop

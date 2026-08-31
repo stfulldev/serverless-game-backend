@@ -12,7 +12,7 @@ Serverless-бэкенд для Unity-игры на Laravel 13, Bref и AWS. Ос
 make init
 ```
 
-Команда создаст `.env`, соберёт образы, установит Composer/npm-зависимости в Docker volumes, сгенерирует `APP_KEY` и запустит сервисы.
+Команда создаст `.env`, соберёт образы, установит Composer/npm-зависимости в Docker volumes, сгенерирует `APP_KEY`, запустит сервисы и подготовит локальную DynamoDB-таблицу.
 
 После запуска доступны:
 
@@ -36,6 +36,7 @@ make init
 ```bash
 make help
 make up
+make dynamodb-setup
 make down
 make restart
 make ps
