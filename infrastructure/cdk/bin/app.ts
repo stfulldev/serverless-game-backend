@@ -4,6 +4,7 @@ import { App } from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
 import { EventingStack } from '../lib/eventing-stack';
 import { GameplayStack } from '../lib/gameplay-stack';
+import { ObservabilityStack } from '../lib/observability-stack';
 import { ProductionStack } from '../lib/production-stack';
 
 const app = new App();
@@ -27,7 +28,7 @@ const gameplayStack = new GameplayStack(app, `ServerlessGameBackend-${environmen
     terminationProtection: isProduction,
 });
 
-new AuthStack(app, `ServerlessGameBackend-${environmentName}-Auth`, {
+const authStack = new AuthStack(app, `ServerlessGameBackend-${environmentName}-Auth`, {
     environmentName,
     playersTable: gameplayStack.playersTable,
     walletsTable: gameplayStack.walletsTable,
@@ -38,7 +39,7 @@ new AuthStack(app, `ServerlessGameBackend-${environmentName}-Auth`, {
     terminationProtection: isProduction,
 });
 
-new ProductionStack(app, `ServerlessGameBackend-${environmentName}-Production`, {
+const productionStack = new ProductionStack(app, `ServerlessGameBackend-${environmentName}-Production`, {
     environmentName,
     productionsTable: gameplayStack.productionsTable,
     outboxEventsTable: gameplayStack.outboxEventsTable,
@@ -48,11 +49,45 @@ new ProductionStack(app, `ServerlessGameBackend-${environmentName}-Production`, 
     terminationProtection: isProduction,
 });
 
-new EventingStack(app, `ServerlessGameBackend-${environmentName}-Eventing`, {
+const eventingStack = new EventingStack(app, `ServerlessGameBackend-${environmentName}-Eventing`, {
     environmentName,
     outboxEventsTable: gameplayStack.outboxEventsTable,
     stackName: `serverless-game-backend-${environmentName}-eventing`,
     description: `Outbox publication and domain event consumers for Serverless Game Backend (${environmentName})`,
+    env: stackEnvironment,
+    terminationProtection: isProduction,
+});
+
+new ObservabilityStack(app, `ServerlessGameBackend-${environmentName}-Observability`, {
+    environmentName,
+    lambdaFunctions: {
+        'Cognito post-confirmation': authStack.postConfirmationFunction,
+        'Production completion': productionStack.completeProductionFunction,
+        'Outbox enrichment': eventingStack.outboxEnrichmentFunction,
+        'Domain event consumer': eventingStack.domainEventConsumerFunction,
+    },
+    coreTables: {
+        Players: gameplayStack.playersTable,
+        Wallets: gameplayStack.walletsTable,
+        Commands: gameplayStack.commandsTable,
+        Outbox: gameplayStack.outboxEventsTable,
+    },
+    gameplayTables: {
+        Buildings: gameplayStack.buildingsTable,
+        Productions: gameplayStack.productionsTable,
+        'Occupied cells': gameplayStack.occupiedCellsTable,
+        'Cleared obstacles': gameplayStack.clearedObstaclesTable,
+    },
+    deadLetterQueues: {
+        'Production completion': productionStack.completionDeadLetterQueue,
+        'Outbox Pipe': eventingStack.outboxPipeDeadLetterQueue,
+        'Event delivery': eventingStack.eventDeliveryDeadLetterQueue,
+        'Domain event consumer': eventingStack.consumerDeadLetterQueue,
+    },
+    domainEventQueue: eventingStack.domainEventQueue,
+    outboxPipeName: eventingStack.outboxPipe.ref,
+    stackName: `serverless-game-backend-${environmentName}-observability`,
+    description: `CloudWatch dashboards and alarms for Serverless Game Backend (${environmentName})`,
     env: stackEnvironment,
     terminationProtection: isProduction,
 });

@@ -127,6 +127,14 @@ Enrichment-Lambda преобразует DynamoDB `AttributeValue` в верси
 
 Доставка имеет семантику at-least-once. Для разных классов ошибок созданы отдельные DLQ: исчерпанные повторы Pipe, сбои доставки EventBridge Rule и сообщения, которые consumer не обработал за пять получений. Локально записи можно изучать в `outbox_events` через DynamoDB Admin; EventBridge Pipes и SQS в текущем Docker-окружении не эмулируются, а преобразование и consumer проверяются тестами.
 
+## Наблюдаемость в AWS
+
+CDK создаёт CloudWatch Dashboard `serverless-game-backend-<environment>-operations`. На нём собраны ошибки и throttling Lambda, сбои outbox Pipe, очередь доменных событий, DynamoDB throttling/transaction conflicts и глубина всех DLQ.
+
+Рядом создаются восемь агрегированных alarms: Lambda errors/throttles, throttling двух групп DynamoDB-таблиц, transaction conflicts, сообщения в DLQ, возраст старейшего доменного события и ошибки EventBridge Pipe. Отсутствие данных не считается сбоем. Канал уведомлений пока намеренно не подключён: alarms появятся в CloudWatch, а SNS/email/Chatbot action можно добавить после выбора адресата.
+
+EventBridge Pipe пишет ошибки в `/aws/vendedlogs/pipes/serverless-game-backend-<environment>-outbox-events` без execution payload. Логи хранятся одну неделю в `dev` и один месяц в `prod`.
+
 Удалить здание и освободить занятые им клетки:
 
 ```bash

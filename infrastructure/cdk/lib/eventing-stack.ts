@@ -40,6 +40,8 @@ export class EventingStack extends Stack {
 
     public readonly outboxPipe: pipes.CfnPipe;
 
+    public readonly outboxPipeLogGroup: logs.LogGroup;
+
     public constructor(scope: Construct, id: string, props: EventingStackProps) {
         super(scope, id, props);
 
@@ -146,6 +148,11 @@ export class EventingStack extends Stack {
             assumedBy: new iam.ServicePrincipal('pipes.amazonaws.com'),
             description: 'Reads the outbox stream, invokes enrichment, and publishes domain events.',
         });
+        this.outboxPipeLogGroup = new logs.LogGroup(this, 'OutboxPipeLogs', {
+            logGroupName: `/aws/vendedlogs/pipes/${resourcePrefix}-outbox-events`,
+            retention: logRetention,
+            removalPolicy,
+        });
         const pipeExecutionPolicy = new iam.Policy(this, 'OutboxPipeExecutionPolicy', {
             statements: [
                 new iam.PolicyStatement({
@@ -171,6 +178,13 @@ export class EventingStack extends Stack {
                 new iam.PolicyStatement({
                     actions: ['sqs:SendMessage'],
                     resources: [this.outboxPipeDeadLetterQueue.queueArn],
+                }),
+                new iam.PolicyStatement({
+                    actions: [
+                        'logs:CreateLogStream',
+                        'logs:PutLogEvents',
+                    ],
+                    resources: [`${this.outboxPipeLogGroup.logGroupArn}:*`],
                 }),
             ],
         });
@@ -209,6 +223,12 @@ export class EventingStack extends Stack {
                     detailType: '$.eventType',
                     time: '$.occurredAt',
                 },
+            },
+            logConfiguration: {
+                cloudwatchLogsLogDestination: {
+                    logGroupArn: this.outboxPipeLogGroup.logGroupArn,
+                },
+                level: 'ERROR',
             },
             tags: {
                 Project: 'serverless-game-backend',

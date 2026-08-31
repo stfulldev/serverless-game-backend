@@ -49,6 +49,12 @@ test('outbox inserts are enriched and published to the domain event bus', () => 
             },
         },
         Enrichment: Match.anyValue(),
+        LogConfiguration: {
+            CloudwatchLogsLogDestination: {
+                LogGroupArn: Match.anyValue(),
+            },
+            Level: 'ERROR',
+        },
         Target: Match.anyValue(),
         TargetParameters: {
             EventBridgeEventBusParameters: {
@@ -128,6 +134,13 @@ test('SQS consumer reports partial failures and pipe role is least privileged', 
                 }),
                 Match.objectLike({
                     Action: 'sqs:SendMessage',
+                    Effect: 'Allow',
+                }),
+                Match.objectLike({
+                    Action: [
+                        'logs:CreateLogStream',
+                        'logs:PutLogEvents',
+                    ],
                     Effect: 'Allow',
                 }),
             ]),
