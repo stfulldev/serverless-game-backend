@@ -4,6 +4,26 @@ return [
     'map_version' => env('GAME_MAP_VERSION', 'v1'),
     'starting_coins' => (int) env('GAME_STARTING_COINS', 1000),
     'idempotency_ttl_seconds' => (int) env('GAME_IDEMPOTENCY_TTL_SECONDS', 604800),
+    'max_building_footprint_cells' => 16,
+
+    'buildings' => [
+        'garden-bed' => [
+            'width' => 2,
+            'height' => 2,
+            'placement_cost' => 200,
+        ],
+    ],
+
+    'recipes' => [
+        'wheat' => [
+            'building_types' => ['garden-bed'],
+            'duration_seconds' => 60,
+            'output' => [
+                'resource' => 'wheat',
+                'quantity' => 1,
+            ],
+        ],
+    ],
 
     'maps' => [
         'v1' => [

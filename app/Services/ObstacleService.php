@@ -8,7 +8,7 @@ use App\Exceptions\InsufficientFundsException;
 use App\Exceptions\ObstacleAlreadyClearedException;
 use App\Exceptions\ObstacleNotFoundException;
 use App\Exceptions\PlayerNotFoundException;
-use App\Game\ObstacleCatalog;
+use App\Game\MapCatalog;
 use Aws\DynamoDb\DynamoDbClient;
 use Aws\DynamoDb\Exception\DynamoDbException;
 use Aws\DynamoDb\Marshaler;
@@ -26,7 +26,7 @@ final class ObstacleService
 
     public function __construct(
         private readonly PlayerService $players,
-        private readonly ObstacleCatalog $obstacles,
+        private readonly MapCatalog $maps,
         private readonly DynamoDbClient $dynamoDb,
     ) {
         $this->marshaler = new Marshaler;
@@ -50,7 +50,7 @@ final class ObstacleService
 
         $profile = $this->players->getProfile($playerId)
             ?? throw new PlayerNotFoundException;
-        $obstacle = $this->obstacles->find($profile['map']['version'], $obstacleId)
+        $obstacle = $this->maps->findObstacle($profile['map']['version'], $obstacleId)
             ?? throw new ObstacleNotFoundException;
 
         if ($this->getClearedObstacle($playerId, $obstacleId) !== null) {
