@@ -1,0 +1,696 @@
+{
+  "info": {
+    "_postman_id": "83120f60-8c15-4e18-90be-a6e73e454de1",
+    "name": "Serverless Game Backend — Gameplay Scenario",
+    "description": "Полный HTTP-сценарий текущего игрового цикла: состояние фермы → расчистка препятствия → строительство → перемещение → производство → сбор → удаление здания.\n\nЛокальная подготовка:\n1. `make up`\n2. `make dynamodb-setup`\n3. `make artisan ARGS=\"player:setup-local postman-demo-player v1 postman-demo-seed 1000\"`\n4. Запустить всю коллекцию через Collection Runner с первого запроса.\n\nКоллекция генерирует новые Idempotency-Key, передаёт buildingId/productionId между запросами и автоматически ждёт готовности производства перед сбором. Для повторного полного прогона создайте игрока с новым ID и измените переменную `playerId`.\n\nДля AWS задайте `baseUrl` и Cognito access token в `accessToken`; `X-Player-Id` используется только локальным окружением.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response is JSON', function () {",
+          "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "playerId",
+      "value": "postman-demo-player",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "obstacleId",
+      "value": "tree-001",
+      "type": "string"
+    },
+    {
+      "key": "buildingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productionCompletesAt",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clearIdempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "placeIdempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "moveIdempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "startProductionIdempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "collectProductionIdempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deleteBuildingIdempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clearResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "placeResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "collectResponse",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Initial state",
+      "item": [
+        {
+          "name": "Initialize scenario and get farm",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "[",
+                  "    'clearIdempotencyKey',",
+                  "    'placeIdempotencyKey',",
+                  "    'moveIdempotencyKey',",
+                  "    'startProductionIdempotencyKey',",
+                  "    'collectProductionIdempotencyKey',",
+                  "    'deleteBuildingIdempotencyKey'",
+                  "].forEach(function (key) {",
+                  "    pm.collectionVariables.set(key, pm.variables.replaceIn('{{$guid}}'));",
+                  "});",
+                  "",
+                  "[",
+                  "    'buildingId',",
+                  "    'productionId',",
+                  "    'productionCompletesAt',",
+                  "    'clearResponse',",
+                  "    'placeResponse',",
+                  "    'collectResponse'",
+                  "].forEach(function (key) {",
+                  "    pm.collectionVariables.unset(key);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Fresh farm is returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.playerId).to.eql(pm.collectionVariables.get('playerId'));",
+                  "    pm.expect(body.data.wallet.coins).to.eql(1000);",
+                  "    pm.expect(body.data.buildings).to.eql([]);",
+                  "    pm.expect(body.data.productions).to.eql([]);",
+                  "    pm.expect(body.data.clearedObstacles).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}",
+                "description": "Используется только в local-окружении."
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/farm",
+            "description": "Начинает новый прогон: генерирует Idempotency-Key для всех команд и проверяет, что локальный игрок создан с чистой фермой."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 — Obstacle",
+      "item": [
+        {
+          "name": "Clear obstacle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Obstacle is cleared', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(body.data.obstacle.id).to.eql(pm.collectionVariables.get('obstacleId'));",
+                  "    pm.expect(body.data.obstacle.type).to.eql('tree');",
+                  "    pm.expect(body.data.wallet.coins).to.eql(900);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('clearResponse', JSON.stringify(body));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{clearIdempotencyKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/obstacles/{{obstacleId}}/clear",
+            "description": "Расчищает tree-001 и списывает 100 монет."
+          },
+          "response": []
+        },
+        {
+          "name": "Replay obstacle clearing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Idempotent replay returns the original response', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const original = JSON.parse(pm.collectionVariables.get('clearResponse'));",
+                  "    pm.expect(pm.response.json()).to.eql(original);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{clearIdempotencyKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/obstacles/{{obstacleId}}/clear",
+            "description": "Повторяет запрос с тем же Idempotency-Key и проверяет отсутствие второго списания."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 — Building",
+      "item": [
+        {
+          "name": "Place garden bed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Garden bed is placed', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(body.data.building.type).to.eql('garden-bed');",
+                  "    pm.expect(body.data.building.x).to.eql(0);",
+                  "    pm.expect(body.data.building.y).to.eql(0);",
+                  "    pm.expect(body.data.wallet.coins).to.eql(700);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('buildingId', body.data.building.id);",
+                  "    pm.collectionVariables.set('placeResponse', JSON.stringify(body));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{placeIdempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"building_type\": \"garden-bed\",\n  \"x\": 0,\n  \"y\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/buildings",
+            "description": "Размещает грядку 2×2, списывает 200 монет и сохраняет buildingId для следующих запросов."
+          },
+          "response": []
+        },
+        {
+          "name": "Replay garden bed placement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Building placement is idempotent', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const original = JSON.parse(pm.collectionVariables.get('placeResponse'));",
+                  "    pm.expect(pm.response.json()).to.eql(original);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{placeIdempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"building_type\": \"garden-bed\",\n  \"x\": 0,\n  \"y\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/buildings",
+            "description": "Проверяет, что повтор размещения возвращает тот же buildingId и не списывает монеты повторно."
+          },
+          "response": []
+        },
+        {
+          "name": "Move garden bed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Garden bed is moved', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const building = pm.response.json().data.building;",
+                  "    pm.expect(building.id).to.eql(pm.collectionVariables.get('buildingId'));",
+                  "    pm.expect(building.x).to.eql(1);",
+                  "    pm.expect(building.y).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{moveIdempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"x\": 1,\n  \"y\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/buildings/{{buildingId}}/move",
+            "description": "Перемещает созданную грядку на одну клетку вправо."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 — Production",
+      "item": [
+        {
+          "name": "Start wheat production",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Wheat production is started', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(body.data.production.buildingId).to.eql(pm.collectionVariables.get('buildingId'));",
+                  "    pm.expect(body.data.production.recipe).to.eql('wheat');",
+                  "    pm.expect(body.data.production.status).to.eql('pending');",
+                  "    pm.expect(body.data.production.output).to.eql({ resource: 'wheat', quantity: 1 });",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('productionId', body.data.production.id);",
+                  "    pm.collectionVariables.set('productionCompletesAt', body.data.production.completesAt);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{startProductionIdempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipe\": \"wheat\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/buildings/{{buildingId}}/productions",
+            "description": "Запускает 60-секундное производство и сохраняет productionId/completesAt."
+          },
+          "response": []
+        },
+        {
+          "name": "Collect wheat (waits until ready)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const completesAt = Date.parse(pm.collectionVariables.get('productionCompletesAt'));",
+                  "",
+                  "if (Number.isNaN(completesAt)) {",
+                  "    throw new Error('productionCompletesAt is missing; run Start wheat production first.');",
+                  "}",
+                  "",
+                  "const waitMilliseconds = Math.max(0, completesAt - Date.now() + 1000);",
+                  "",
+                  "if (waitMilliseconds > 0) {",
+                  "    console.log(`Waiting ${waitMilliseconds} ms for production completion.`);",
+                  "    setTimeout(function () {}, waitMilliseconds);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Wheat is collected once', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(body.data.production.id).to.eql(pm.collectionVariables.get('productionId'));",
+                  "    pm.expect(body.data.production.status).to.eql('collected');",
+                  "    pm.expect(body.data.production.output).to.eql({ resource: 'wheat', quantity: 1 });",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('collectResponse', JSON.stringify(body));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{collectProductionIdempotencyKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/productions/{{productionId}}/collect",
+            "description": "Перед отправкой ждёт наступления completesAt, затем собирает одну единицу wheat."
+          },
+          "response": []
+        },
+        {
+          "name": "Replay wheat collection",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Production collection is idempotent', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const original = JSON.parse(pm.collectionVariables.get('collectResponse'));",
+                  "    pm.expect(pm.response.json()).to.eql(original);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{collectProductionIdempotencyKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/productions/{{productionId}}/collect",
+            "description": "Повторяет сбор с тем же ключом и проверяет защиту от двойной выдачи ресурса."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 — Cleanup and final state",
+      "item": [
+        {
+          "name": "Delete garden bed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Garden bed is deleted', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const building = pm.response.json().data.building;",
+                  "    pm.expect(building.id).to.eql(pm.collectionVariables.get('buildingId'));",
+                  "    pm.expect(building.deletedAt).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{deleteBuildingIdempotencyKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/buildings/{{buildingId}}",
+            "description": "Удаляет грядку после сбора и освобождает занятые клетки."
+          },
+          "response": []
+        },
+        {
+          "name": "Get final farm state",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Final farm state contains exactly one collected wheat', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const farm = pm.response.json().data;",
+                  "    pm.expect(farm.wallet.coins).to.eql(700);",
+                  "    pm.expect(farm.wallet.resources.wheat).to.eql(1);",
+                  "    pm.expect(farm.buildings).to.eql([]);",
+                  "    pm.expect(farm.clearedObstacles).to.have.lengthOf(1);",
+                  "    pm.expect(farm.productions).to.have.lengthOf(1);",
+                  "    pm.expect(farm.productions[0].status).to.eql('collected');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Player-Id",
+                "value": "{{playerId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/farm",
+            "description": "Проверяет итог: 700 монет, одна wheat, одно очищенное препятствие, завершённое производство и отсутствие здания."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

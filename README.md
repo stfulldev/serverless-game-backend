@@ -33,153 +33,53 @@ make init
 | `dynamodb` | DynamoDB Local с постоянным именованным volume |
 | `dynamodb-admin` | Веб-интерфейс для просмотра и редактирования локальной DynamoDB |
 
-## Локальная DynamoDB
+## Локальная работа
 
-`make dynamodb-setup` идемпотентно создаёт восемь физических таблиц: `players`, `wallets`, `buildings`, `productions`, `occupied_cells`, `cleared_obstacles`, `commands` и `outbox_events`. Префикс локальных таблиц — `serverless-game-backend-local-`.
+`make init` уже создаёт таблицы DynamoDB. Посмотреть данные можно через [DynamoDB Admin](http://localhost:8002).
 
-После `make up` таблицы и записи доступны в DynamoDB Admin по адресу <http://localhost:8002>. Локальные AWS-профили и credentials для этого не нужны.
-
-Для ручной проверки можно создать и прочитать тестового игрока:
+Создать тестового игрока:
 
 ```bash
 make artisan ARGS="player:setup-local demo-player v1 demo-seed 1000"
+```
+
+Проверить его состояние:
+
+```bash
 make artisan ARGS="player:show-local demo-player"
 ```
 
-Расчистить препятствие через HTTP API можно из Postman или `curl`:
+## Postman
+
+В [Postman Collection](docs/postman/serverless-game-backend.postman_collection.json) собран полный сценарий: расчистка препятствия, постройка и перемещение грядки, производство, сбор урожая и удаление здания.
+
+Для запуска создайте отдельного игрока:
 
 ```bash
-curl --request POST http://localhost:8000/api/v1/obstacles/tree-001/clear \
-  --header 'Accept: application/json' \
-  --header 'X-Player-Id: demo-player' \
-  --header 'Idempotency-Key: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+make artisan ARGS="player:setup-local postman-demo-player v1 postman-demo-seed 1000"
 ```
 
-Команда атомарно списывает монеты и создаёт записи в `cleared_obstacles`, `commands` и `outbox_events`. Повтор с тем же `Idempotency-Key` возвращает сохранённый ответ без повторного списания.
+Импортируйте коллекцию и запустите её через Collection Runner. Для повторного прогона укажите новый `playerId` и создайте игрока с таким же ID.
 
-Разместить тестовую грядку размером 2×2 и стоимостью 200 монет:
+## AWS
+
+Инфраструктура описана в `infrastructure/cdk`. В AWS используются Cognito, Lambda, API Gateway, DynamoDB, EventBridge, SQS и CloudWatch. Локально работают Laravel API и DynamoDB; остальные AWS-сервисы покрыты тестами инфраструктуры.
 
 ```bash
-curl --request POST http://localhost:8000/api/v1/buildings \
-  --header 'Accept: application/json' \
-  --header 'Content-Type: application/json' \
-  --header 'X-Player-Id: demo-player' \
-  --header 'Idempotency-Key: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' \
-  --data '{"building_type":"garden-bed","x":0,"y":0}'
-```
-
-Размещение одной транзакцией списывает монеты, создаёт запись в `buildings`, резервирует четыре записи в `occupied_cells` и сохраняет `commands`/`outbox_events`. Пересечение с другим зданием или нерасчищенным препятствием возвращает `409 CELLS_OCCUPIED` без частичных изменений.
-
-Переместить созданное здание, подставив `id` из ответа размещения:
-
-```bash
-curl --request PATCH http://localhost:8000/api/v1/buildings/BUILDING_ID/move \
-  --header 'Accept: application/json' \
-  --header 'Content-Type: application/json' \
-  --header 'X-Player-Id: demo-player' \
-  --header 'Idempotency-Key: cccccccc-cccc-4ccc-8ccc-cccccccccccc' \
-  --data '{"x":1,"y":0}'
-```
-
-Перемещение атомарно освобождает только покинутые клетки, сохраняет общую часть footprint, резервирует только новые клетки, увеличивает версию здания и записывает `BuildingMoved.v1`. Чужой `buildingId` возвращает `404 BUILDING_NOT_FOUND` без раскрытия владельца.
-
-Запустить производство пшеницы на существующей грядке:
-
-```bash
-curl --request POST http://localhost:8000/api/v1/buildings/BUILDING_ID/productions \
-  --header 'Accept: application/json' \
-  --header 'Content-Type: application/json' \
-  --header 'X-Player-Id: demo-player' \
-  --header 'Idempotency-Key: eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' \
-  --data '{"recipe":"wheat"}'
-```
-
-Рецепт `wheat` доступен для `garden-bed`, длится 60 секунд и после будущего сбора даст одну единицу `wheat`. Запуск атомарно помечает здание активным, создаёт `productions`, сохраняет `StartProduction` и записывает `ProductionStarted.v1`. Второе одновременное производство возвращает `409 BUILDING_HAS_ACTIVE_PRODUCTION`.
-
-В AWS перед сохранением производства создаётся одноразовое расписание EventBridge Scheduler. Оно вызывает `App\Lambda\Production\CompleteProductionHandler`, который условной DynamoDB-транзакцией переводит готовое производство из `pending` в `completed` и пишет `ProductionCompleted.v1` в outbox. Повторный вызов handler безопасен, расписание удаляется после выполнения, а исчерпанные retry попадают в SQS DLQ. В локальном Docker-окружении Scheduler выключен (`EVENTBRIDGE_SCHEDULER_ENABLED=false`), потому что DynamoDB Local его не эмулирует.
-
-Через 60 секунд собрать результат, подставив `id` производства из ответа запуска:
-
-```bash
-curl --request POST http://localhost:8000/api/v1/productions/PRODUCTION_ID/collect \
-  --header 'Accept: application/json' \
-  --header 'X-Player-Id: demo-player' \
-  --header 'Idempotency-Key: ffffffff-ffff-4fff-8fff-ffffffffffff'
-```
-
-Сбор одной транзакцией добавляет `wheat` в `wallets.resources`, помечает производство `collected`, освобождает `buildings.active_production_id`, сохраняет `CollectProduction` и пишет `ProductionCollected.v1`. Если локальный Scheduler не завершил производство, просроченный `pending` завершается в той же транзакции и дополнительно создаёт `ProductionCompleted.v1`. Повтор с исходным ключом не выдаёт ресурс второй раз.
-
-## Асинхронные доменные события
-
-В AWS outbox доставляется отдельным конвейером:
-
-```text
-outbox_events INSERT
-→ DynamoDB Stream
-→ EventBridge Pipe
-→ OutboxEventEnrichmentHandler
-→ EventBridge domain event bus
-→ SQS domain-events
-→ DomainEventConsumerHandler
-```
-
-Enrichment-Lambda преобразует DynamoDB `AttributeValue` в версионированный event envelope с `eventId`, `eventType`, `schemaVersion`, `occurredAt`, `playerId`, `correlationId` и `payload`. Первый consumer безопасно обрабатывает SQS batch и возвращает partial batch failures, поэтому корректные сообщения не повторяются из-за одного некорректного.
-
-Доставка имеет семантику at-least-once. Для разных классов ошибок созданы отдельные DLQ: исчерпанные повторы Pipe, сбои доставки EventBridge Rule и сообщения, которые consumer не обработал за пять получений. Локально записи можно изучать в `outbox_events` через DynamoDB Admin; EventBridge Pipes и SQS в текущем Docker-окружении не эмулируются, а преобразование и consumer проверяются тестами.
-
-## Наблюдаемость в AWS
-
-CDK создаёт CloudWatch Dashboard `serverless-game-backend-<environment>-operations`. На нём собраны ошибки и throttling Lambda, сбои outbox Pipe, очередь доменных событий, DynamoDB throttling/transaction conflicts и глубина всех DLQ.
-
-Рядом создаются восемь агрегированных alarms: Lambda errors/throttles, throttling двух групп DynamoDB-таблиц, transaction conflicts, сообщения в DLQ, возраст старейшего доменного события и ошибки EventBridge Pipe. Отсутствие данных не считается сбоем. Канал уведомлений пока намеренно не подключён: alarms появятся в CloudWatch, а SNS/email/Chatbot action можно добавить после выбора адресата.
-
-EventBridge Pipe пишет ошибки в `/aws/vendedlogs/pipes/serverless-game-backend-<environment>-outbox-events` без execution payload. Логи хранятся одну неделю в `dev` и один месяц в `prod`.
-
-Удалить здание и освободить занятые им клетки:
-
-```bash
-curl --request DELETE http://localhost:8000/api/v1/buildings/BUILDING_ID \
-  --header 'Accept: application/json' \
-  --header 'X-Player-Id: demo-player' \
-  --header 'Idempotency-Key: dddddddd-dddd-4ddd-8ddd-dddddddddddd'
-```
-
-Удаление одной транзакцией удаляет запись из `buildings`, освобождает принадлежащие зданию `occupied_cells` и записывает `DeleteBuilding`/`BuildingDeleted.v1` в `commands` и `outbox_events`. В текущей версии стоимость здания не возвращается, а здание с активным производством удалить нельзя. Повтор с тем же `Idempotency-Key` вернёт сохранённый успешный ответ, даже если здания уже нет.
-
-## Make-команды
-
-```bash
-make help
-make up
-make dynamodb-setup
-make down
-make restart
-make ps
-make logs
-make shell
-make test
-make format
-make assets
 make cdk-test
-make quality
+make cdk-synth ENVIRONMENT=dev
 ```
 
-Команды с аргументами:
+## Команды
 
 ```bash
-make artisan ARGS="route:list"
-make composer ARGS="show --direct"
-make npm ARGS="outdated"
+make help       # все команды
+make up         # запустить контейнеры
+make down       # остановить контейнеры
+make logs       # смотреть логи
+make shell      # открыть shell контейнера app
+make test       # запустить PHPUnit
+make quality    # выполнить все проверки
 ```
 
-После изменения `composer.lock` или `package-lock.json` выполните `make install`. Для полной пересборки образов без cache используйте `make rebuild`.
-
-`make down` сохраняет зависимости и данные DynamoDB. `make destroy` удаляет все volumes проекта и требует явного подтверждения.
-
-## Проверка проекта
-
-```bash
-make quality
-```
-
-Команда валидирует и проверяет Composer/npm-зависимости, запускает PHPUnit и собирает frontend assets.
+`make down` сохраняет данные. `make destroy` удаляет контейнеры и volumes проекта.
