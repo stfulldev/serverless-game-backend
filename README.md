@@ -2,6 +2,10 @@
 
 Serverless-бэкенд для Unity-игры на Laravel 13, Bref и AWS. Основное хранилище проекта — DynamoDB; локальная разработка полностью изолирована в Docker.
 
+## Архитектура
+
+![Архитектура Serverless Game Backend](docs/architecture/architecture_serverless_game_diagram_v1.png)
+
 ## Быстрый старт
 
 ```bash
