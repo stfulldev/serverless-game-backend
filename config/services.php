@@ -43,6 +43,22 @@ return [
             'commands' => env('DYNAMODB_COMMANDS_TABLE'),
             'outbox_events' => env('DYNAMODB_OUTBOX_EVENTS_TABLE'),
         ],
+        'scheduler' => [
+            'enabled' => env('EVENTBRIDGE_SCHEDULER_ENABLED', false),
+            'endpoint' => env('EVENTBRIDGE_SCHEDULER_ENDPOINT'),
+            'group_name' => env('EVENTBRIDGE_SCHEDULER_GROUP'),
+            'target_arn' => env('COMPLETE_PRODUCTION_FUNCTION_ARN'),
+            'role_arn' => env('EVENTBRIDGE_SCHEDULER_ROLE_ARN'),
+            'dead_letter_queue_arn' => env('EVENTBRIDGE_SCHEDULER_DLQ_ARN'),
+            'maximum_event_age_seconds' => (int) env(
+                'EVENTBRIDGE_SCHEDULER_MAXIMUM_EVENT_AGE_SECONDS',
+                3600,
+            ),
+            'maximum_retry_attempts' => (int) env(
+                'EVENTBRIDGE_SCHEDULER_MAXIMUM_RETRY_ATTEMPTS',
+                10,
+            ),
+        ],
     ],
 
     'cognito' => [

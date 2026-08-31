@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Aws\DynamoDb\DynamoDbClient;
+use Aws\Scheduler\SchedulerClient;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
@@ -28,6 +29,26 @@ final class AwsServiceProvider extends ServiceProvider
                 }
 
                 return new DynamoDbClient($clientConfiguration);
+            },
+        );
+
+        $this->app->singleton(
+            SchedulerClient::class,
+            function (Application $application): SchedulerClient {
+                $configuration = $application->make(Repository::class);
+                $endpoint = $configuration->get('services.aws.scheduler.endpoint');
+
+                /** @var array<string, mixed> $clientConfiguration */
+                $clientConfiguration = [
+                    'version' => 'latest',
+                    'region' => (string) $configuration->get('services.aws.region'),
+                ];
+
+                if (is_string($endpoint) && $endpoint !== '') {
+                    $clientConfiguration['endpoint'] = $endpoint;
+                }
+
+                return new SchedulerClient($clientConfiguration);
             },
         );
     }

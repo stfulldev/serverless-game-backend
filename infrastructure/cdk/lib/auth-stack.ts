@@ -6,13 +6,13 @@ import {
     type StackProps,
     Tags,
 } from 'aws-cdk-lib';
-import { packagePhpCode, PhpFunction } from '@bref.sh/constructs';
+import { PhpFunction } from '@bref.sh/constructs';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import type { Construct } from 'constructs';
-import path from 'node:path';
+import { packageLaravelCode } from './laravel-code';
 
 export interface AuthStackProps extends StackProps {
     readonly environmentName: string;
@@ -96,46 +96,7 @@ export class AuthStack extends Stack {
             description: 'Handles Cognito events after a user confirms signup or password recovery.',
             phpVersion: '8.4',
             handler: 'App\\Lambda\\Cognito\\PostConfirmationHandler',
-            code: packagePhpCode(path.join(__dirname, '../../..'), {
-                exclude: [
-                    '.env',
-                    '.env.*',
-                    '.agents',
-                    '.claude',
-                    '.codex',
-                    '.cursor',
-                    '.github',
-                    '.idea',
-                    '.vscode',
-                    '.dockerignore',
-                    '.editorconfig',
-                    '.gitattributes',
-                    '.gitignore',
-                    '.mcp.json',
-                    '.npmrc',
-                    '.phpunit.result.cache',
-                    'AGENTS.md',
-                    'CLAUDE.md',
-                    'boost.json',
-                    'composer.json',
-                    'composer.lock',
-                    'database',
-                    'docker',
-                    'docker-compose.yml',
-                    'docs',
-                    'infrastructure',
-                    'node_modules',
-                    'public/build',
-                    'storage/logs/*',
-                    'tests',
-                    'Makefile',
-                    'README.md',
-                    'package.json',
-                    'package-lock.json',
-                    'phpunit.xml',
-                    'vite.config.js',
-                ],
-            }),
+            code: packageLaravelCode(),
             memorySize: 1024,
             timeout: Duration.seconds(15),
             logGroup: postConfirmationLogGroup,

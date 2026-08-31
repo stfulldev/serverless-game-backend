@@ -96,6 +96,19 @@ curl --request POST http://localhost:8000/api/v1/buildings/BUILDING_ID/productio
 
 Рецепт `wheat` доступен для `garden-bed`, длится 60 секунд и после будущего сбора даст одну единицу `wheat`. Запуск атомарно помечает здание активным, создаёт `productions`, сохраняет `StartProduction` и записывает `ProductionStarted.v1`. Второе одновременное производство возвращает `409 BUILDING_HAS_ACTIVE_PRODUCTION`.
 
+В AWS перед сохранением производства создаётся одноразовое расписание EventBridge Scheduler. Оно вызывает `App\Lambda\Production\CompleteProductionHandler`, который условной DynamoDB-транзакцией переводит готовое производство из `pending` в `completed` и пишет `ProductionCompleted.v1` в outbox. Повторный вызов handler безопасен, расписание удаляется после выполнения, а исчерпанные retry попадают в SQS DLQ. В локальном Docker-окружении Scheduler выключен (`EVENTBRIDGE_SCHEDULER_ENABLED=false`), потому что DynamoDB Local его не эмулирует.
+
+Через 60 секунд собрать результат, подставив `id` производства из ответа запуска:
+
+```bash
+curl --request POST http://localhost:8000/api/v1/productions/PRODUCTION_ID/collect \
+  --header 'Accept: application/json' \
+  --header 'X-Player-Id: demo-player' \
+  --header 'Idempotency-Key: ffffffff-ffff-4fff-8fff-ffffffffffff'
+```
+
+Сбор одной транзакцией добавляет `wheat` в `wallets.resources`, помечает производство `collected`, освобождает `buildings.active_production_id`, сохраняет `CollectProduction` и пишет `ProductionCollected.v1`. Если локальный Scheduler не завершил производство, просроченный `pending` завершается в той же транзакции и дополнительно создаёт `ProductionCompleted.v1`. Повтор с исходным ключом не выдаёт ресурс второй раз.
+
 Удалить здание и освободить занятые им клетки:
 
 ```bash

@@ -3,6 +3,7 @@
 import { App } from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
 import { GameplayStack } from '../lib/gameplay-stack';
+import { ProductionStack } from '../lib/production-stack';
 
 const app = new App();
 const environmentName = app.node.tryGetContext('environment');
@@ -32,6 +33,16 @@ new AuthStack(app, `ServerlessGameBackend-${environmentName}-Auth`, {
     outboxEventsTable: gameplayStack.outboxEventsTable,
     stackName: `serverless-game-backend-${environmentName}-auth`,
     description: `Cognito authentication for Serverless Game Backend (${environmentName})`,
+    env: stackEnvironment,
+    terminationProtection: isProduction,
+});
+
+new ProductionStack(app, `ServerlessGameBackend-${environmentName}-Production`, {
+    environmentName,
+    productionsTable: gameplayStack.productionsTable,
+    outboxEventsTable: gameplayStack.outboxEventsTable,
+    stackName: `serverless-game-backend-${environmentName}-production`,
+    description: `Production timers and completion Lambda for Serverless Game Backend (${environmentName})`,
     env: stackEnvironment,
     terminationProtection: isProduction,
 });

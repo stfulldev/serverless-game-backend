@@ -11,6 +11,7 @@ use Aws\DynamoDb\Exception\DynamoDbException;
 use Aws\DynamoDb\Marshaler;
 use Aws\MockHandler;
 use Aws\Result;
+use Aws\Scheduler\SchedulerClient;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Support\Str;
@@ -128,6 +129,7 @@ final class ProductionControllerTest extends TestCase
             Uuid::fromString(self::EventId),
         ]);
         $this->configureGame();
+        $this->configureScheduler();
         $commands = [];
         $mockHandler = new MockHandler([
             $this->record($commands, new Result),
@@ -135,6 +137,12 @@ final class ProductionControllerTest extends TestCase
             $this->record($commands, new Result),
         ]);
         $this->bindDynamoDb($mockHandler);
+        $schedulerMockHandler = new MockHandler([
+            new Result([
+                'ScheduleArn' => 'arn:aws:scheduler:us-east-1:123456789012:schedule/game/production',
+            ]),
+        ]);
+        $this->bindScheduler($schedulerMockHandler);
 
         $response = $this
             ->withHeaders($this->headers())
@@ -216,6 +224,12 @@ final class ProductionControllerTest extends TestCase
             'completes_at' => '2026-08-31T12:01:00.000000Z',
             'output' => ['resource' => 'wheat', 'quantity' => 1],
         ], $outboxEvent['payload']);
+        $this->assertSame('CreateSchedule', $schedulerMockHandler->getLastCommand()->getName());
+        $this->assertSame(
+            self::ProductionId,
+            $schedulerMockHandler->getLastCommand()['ClientToken'],
+        );
+        $this->assertCount(0, $schedulerMockHandler);
         $this->assertCount(0, $mockHandler);
     }
 
@@ -538,6 +552,16 @@ final class ProductionControllerTest extends TestCase
         $this->useLocalAuthentication();
     }
 
+    private function bindScheduler(MockHandler $mockHandler): void
+    {
+        $this->app->instance(SchedulerClient::class, new SchedulerClient([
+            'version' => 'latest',
+            'region' => 'us-east-1',
+            'credentials' => new Credentials('test', 'test'),
+            'handler' => $mockHandler,
+        ]));
+    }
+
     private function configureGame(): void
     {
         config()->set([
@@ -556,6 +580,20 @@ final class ProductionControllerTest extends TestCase
             'services.aws.dynamodb_tables.productions' => 'test-productions',
             'services.aws.dynamodb_tables.commands' => 'test-commands',
             'services.aws.dynamodb_tables.outbox_events' => 'test-outbox-events',
+            'services.aws.scheduler.enabled' => false,
+        ]);
+    }
+
+    private function configureScheduler(): void
+    {
+        config()->set([
+            'services.aws.scheduler.enabled' => true,
+            'services.aws.scheduler.group_name' => 'game-productions',
+            'services.aws.scheduler.target_arn' => 'arn:aws:lambda:us-east-1:123456789012:function:complete-production',
+            'services.aws.scheduler.role_arn' => 'arn:aws:iam::123456789012:role/scheduler-role',
+            'services.aws.scheduler.dead_letter_queue_arn' => 'arn:aws:sqs:us-east-1:123456789012:completion-dlq',
+            'services.aws.scheduler.maximum_event_age_seconds' => 3600,
+            'services.aws.scheduler.maximum_retry_attempts' => 10,
         ]);
     }
 

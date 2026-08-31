@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\BuildingDeletionController;
 use App\Http\Controllers\Api\V1\BuildingMovementController;
 use App\Http\Controllers\Api\V1\ClearedObstacleController;
 use App\Http\Controllers\Api\V1\FarmController;
+use App\Http\Controllers\Api\V1\ProductionCollectionController;
 use App\Http\Controllers\Api\V1\ProductionController;
 use App\Http\Middleware\AuthenticatePlayer;
 use Illuminate\Support\Facades\Route;
@@ -33,4 +34,8 @@ Route::prefix('v1')
         Route::post('/buildings/{buildingId}/productions', [ProductionController::class, 'store'])
             ->whereUuid('buildingId')
             ->name('api.v1.building-productions.store');
+
+        Route::post('/productions/{productionId}/collect', [ProductionCollectionController::class, 'store'])
+            ->whereUuid('productionId')
+            ->name('api.v1.productions.collect');
     });
