@@ -44,6 +44,14 @@ return [
         ],
     ],
 
+    'cognito' => [
+        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+        'user_pool_id' => env('COGNITO_USER_POOL_ID'),
+        'client_id' => env('COGNITO_CLIENT_ID'),
+        'issuer' => env('COGNITO_ISSUER'),
+        'jwks_cache_ttl' => env('COGNITO_JWKS_CACHE_TTL', 21600),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

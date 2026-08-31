@@ -1,0 +1,24 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "name": "@serverless-game-backend/infrastructure",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "build": "tsc --noEmit",
+        "cdk": "cdk",
+        "destroy": "cdk destroy",
+        "diff": "cdk diff",
+        "synth": "cdk synth"
+    },
+    "dependencies": {
+        "@bref.sh/constructs": "^2.0.5",
+        "aws-cdk-lib": "2.267.0",
+        "constructs": "^10.8.1"
+    },
+    "devDependencies": {
+        "@types/node": "^24.13.3",
+        "aws-cdk": "2.1139.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
+    }
+}
