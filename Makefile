@@ -8,7 +8,7 @@ ENVIRONMENT ?= dev
 export APP_UID ?= $(shell id -u)
 export APP_GID ?= $(shell id -g)
 
-.PHONY: help init env build rebuild install composer-install npm-install cdk-install key up dynamodb-setup stop restart down destroy ps logs logs-app logs-node logs-dynamodb logs-dynamodb-admin shell node-shell artisan composer npm cdk cdk-build cdk-synth test format assets quality
+.PHONY: help init env build rebuild install composer-install npm-install cdk-install key up dynamodb-setup stop restart down destroy ps logs logs-app logs-node logs-dynamodb logs-dynamodb-admin shell node-shell artisan composer npm cdk cdk-build cdk-test cdk-synth test format assets quality
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -102,6 +102,9 @@ cdk: ## Run AWS CDK; example: make cdk ARGS="diff -c environment=dev"
 cdk-build: ## Type-check the AWS CDK project
 	$(COMPOSE) run --rm --no-deps --workdir $(CDK_DIR) node npm run build
 
+cdk-test: ## Run AWS CDK infrastructure tests
+	$(COMPOSE) run --rm --no-deps --workdir $(CDK_DIR) node npm test
+
 cdk-synth: ## Synthesize AWS CloudFormation for ENVIRONMENT (default: dev)
 	$(COMPOSE) run --rm --no-deps --workdir $(CDK_DIR) node npm run synth -- --context environment=$(ENVIRONMENT)
 
@@ -121,4 +124,5 @@ quality: ## Validate dependencies, run audits, tests, and the asset build
 	$(COMPOSE) run --rm --no-deps --workdir $(CDK_DIR) node npm audit --audit-level=high
 	$(COMPOSE) run --rm --no-deps app php artisan test --compact
 	$(COMPOSE) run --rm --no-deps node npm run build
+	$(COMPOSE) run --rm --no-deps --workdir $(CDK_DIR) node npm test
 	$(COMPOSE) run --rm --no-deps --workdir $(CDK_DIR) node npm run build

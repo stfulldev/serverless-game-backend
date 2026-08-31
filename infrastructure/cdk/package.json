@@ -8,7 +8,8 @@
         "cdk": "cdk",
         "destroy": "cdk destroy",
         "diff": "cdk diff",
-        "synth": "cdk synth"
+        "synth": "cdk synth",
+        "test": "node --test -r ts-node/register test/*.test.ts"
     },
     "dependencies": {
         "@bref.sh/constructs": "^2.0.5",

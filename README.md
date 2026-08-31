@@ -109,6 +109,24 @@ curl --request POST http://localhost:8000/api/v1/productions/PRODUCTION_ID/colle
 
 Сбор одной транзакцией добавляет `wheat` в `wallets.resources`, помечает производство `collected`, освобождает `buildings.active_production_id`, сохраняет `CollectProduction` и пишет `ProductionCollected.v1`. Если локальный Scheduler не завершил производство, просроченный `pending` завершается в той же транзакции и дополнительно создаёт `ProductionCompleted.v1`. Повтор с исходным ключом не выдаёт ресурс второй раз.
 
+## Асинхронные доменные события
+
+В AWS outbox доставляется отдельным конвейером:
+
+```text
+outbox_events INSERT
+→ DynamoDB Stream
+→ EventBridge Pipe
+→ OutboxEventEnrichmentHandler
+→ EventBridge domain event bus
+→ SQS domain-events
+→ DomainEventConsumerHandler
+```
+
+Enrichment-Lambda преобразует DynamoDB `AttributeValue` в версионированный event envelope с `eventId`, `eventType`, `schemaVersion`, `occurredAt`, `playerId`, `correlationId` и `payload`. Первый consumer безопасно обрабатывает SQS batch и возвращает partial batch failures, поэтому корректные сообщения не повторяются из-за одного некорректного.
+
+Доставка имеет семантику at-least-once. Для разных классов ошибок созданы отдельные DLQ: исчерпанные повторы Pipe, сбои доставки EventBridge Rule и сообщения, которые consumer не обработал за пять получений. Локально записи можно изучать в `outbox_events` через DynamoDB Admin; EventBridge Pipes и SQS в текущем Docker-окружении не эмулируются, а преобразование и consumer проверяются тестами.
+
 Удалить здание и освободить занятые им клетки:
 
 ```bash
@@ -134,6 +152,7 @@ make shell
 make test
 make format
 make assets
+make cdk-test
 make quality
 ```
 

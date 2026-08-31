@@ -2,6 +2,7 @@
 
 import { App } from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
+import { EventingStack } from '../lib/eventing-stack';
 import { GameplayStack } from '../lib/gameplay-stack';
 import { ProductionStack } from '../lib/production-stack';
 
@@ -43,6 +44,15 @@ new ProductionStack(app, `ServerlessGameBackend-${environmentName}-Production`, 
     outboxEventsTable: gameplayStack.outboxEventsTable,
     stackName: `serverless-game-backend-${environmentName}-production`,
     description: `Production timers and completion Lambda for Serverless Game Backend (${environmentName})`,
+    env: stackEnvironment,
+    terminationProtection: isProduction,
+});
+
+new EventingStack(app, `ServerlessGameBackend-${environmentName}-Eventing`, {
+    environmentName,
+    outboxEventsTable: gameplayStack.outboxEventsTable,
+    stackName: `serverless-game-backend-${environmentName}-eventing`,
+    description: `Outbox publication and domain event consumers for Serverless Game Backend (${environmentName})`,
     env: stackEnvironment,
     terminationProtection: isProduction,
 });
