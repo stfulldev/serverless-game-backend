@@ -2,8 +2,6 @@
 
 Serverless-бэкенд для Unity-игры на Laravel 13, Bref и AWS. Основное хранилище проекта — DynamoDB; локальная разработка полностью изолирована в Docker.
 
-Локальные PHP, Composer, Node.js и DynamoDB не требуются.
-
 ## Быстрый старт
 
 ```bash
@@ -28,8 +26,6 @@ make init
 | `app` | PHP 8.4, Composer, Laravel HTTP server и Artisan |
 | `node` | Node.js, npm и Vite с HMR |
 | `dynamodb` | DynamoDB Local с постоянным именованным volume |
-
-Для локального DynamoDB используются фиктивные AWS credentials. Они не подходят для AWS и не должны заменять production-секреты.
 
 ## Make-команды
 
